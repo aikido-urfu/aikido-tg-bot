@@ -1,14 +1,12 @@
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters.command import Command
 import asyncio
 import json
-import pickle
-import telegram
-import telethon
-from telethon import TelegramClient
 
 
 bot_token = ''
 chat_id = -1
-
+logging.basicConfig(level=logging.INFO)
 
 def load_settings():
     global bot_token, chat_id
@@ -16,6 +14,9 @@ def load_settings():
         settings = json.loads(f.read())
         bot_token = settings['bot_token']
         chat_id = settings['chat_id']
+
+
+# @client.on(events)
 
 
 async def main():
