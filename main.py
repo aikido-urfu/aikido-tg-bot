@@ -7,25 +7,23 @@ import json
 
 
 bot_token = ''
-chat_id = -1
 bot: Bot
 dp = Dispatcher()
 logging.basicConfig(level=logging.INFO)
 
 
 def load_settings():
-    global bot_token, chat_id
+    global bot_token
     with open('./settings.json', 'r', encoding='utf-8') as f:
         settings = json.loads(f.read())
         bot_token = settings['bot_token']
-        chat_id = settings['chat_id']
 
 
 # /start handler
 @dp.message(CommandStart(deep_link=True))  # , magic=F.args.regexp(re.compile(r'Regex   token'))
 async def start(message: types.Message, command: CommandObject):
     command_args: str = command.args
-    await message.answer(f'StartToken = {command_args}')
+    await message.answer(f'StartToken \= {command_args}')
     await message.answer('Вы подписаны на уведомления')
 
 
