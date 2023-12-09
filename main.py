@@ -1,5 +1,7 @@
-from aiogram import Bot, Dispatcher, types, F
+from datetime import date
+from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command, CommandObject, CommandStart
+from aiogram.utils.formatting import Text, Bold, as_numbered_list, Code, TextLink
 from aiogram.enums import ParseMode
 import asyncio
 import logging
@@ -11,7 +13,8 @@ bot_token = ''
 bot: Bot
 dp = Dispatcher()
 logging.basicConfig(level=logging.INFO)
-url = 'http://aikido.ru/tg/'
+url = 'localhost:123/telegram/'
+url = "https://reqres.in/api/"
 
 
 def load_settings():
@@ -22,10 +25,10 @@ def load_settings():
 
 
 # /start handler
-@dp.message(CommandStart(deep_link=True))  # , magic=F.args.regexp(re.compile(r'Regex   token'))
+@dp.message(CommandStart(deep_link=True))
 async def start(message: types.Message, command: CommandObject):
     command_args: str = command.args
-    res = requests.post(url + 'start', data={'tgID': message.chat.id, 'token': command_args})
+    res = requests.post(url + 'start', data={'tgid': message.chat.id, 'token': command_args})
     if res.ok:
         await message.answer('Вы подписаны на уведомления')
     else:
@@ -35,23 +38,34 @@ async def start(message: types.Message, command: CommandObject):
 # /unsubscribe handler
 @dp.message(Command('unsubscribe'))
 async def unsubscribe(message: types.Message):
-    res = requests.post(url + 'unsubscribe', data={'tgID': message.chat.id})
+    res = requests.delete(url + 'unsubscribe', data={'tgid': message.chat.id})
     if res.ok:
         await message.answer('Вы отписаны от уведомлений')
+    elif res.status_code == 400:
+        await message.answer('Вы не были подписаны на уведомления')
     else:
-        await message.answer('Ошибка при отписке')
+        await message.answer('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.')
 
 
 # /mail handler
 @dp.message(Command('mail'))
-async def mail(message: types.Message, command: CommandObject):
-    res = requests.get(url + 'mail', data={'tgID': message.chat.id})
+async def mail(message: types.Message) -> None:
+    res = requests.get(url + 'mail', data={'tgid': message.chat.id})
     if res.ok:
-        ans = res.json()
-        sender_name: str = ans['sender_name']
-        link: str = 'https://aikido.ru/mail/'
-        await message.answer(f'Вам пришло письмо от *{sender_name}*\n\n'
-                             f'[Перейти на сайт]({link})')
+        answer = res.json()
+        if not answer:
+            await message.answer('Нет новых писем')
+            return
+        for letter in answer:
+            sender_name: str = letter['sender']
+            receive_date: date = date.fromisoformat(letter['date'])  # '2012-11-04T14:51:06.157Z'
+            link: str = 'https://aikido.ru/mail/'
+            content = Text(
+                'Вам пришло письмо от ', Bold(sender_name), '\n',
+                'В ', receive_date.strftime("%H:%M %d.%m.%Y"), '\n',  # 14:30 07.12.2012
+                TextLink('Перейти на сайт', url=link)
+            )
+            await message.answer(**content.as_kwargs())
     else:
         await message.answer('Ошибка при проверке почты')
 
@@ -59,17 +73,26 @@ async def mail(message: types.Message, command: CommandObject):
 # /votes handler
 @dp.message(Command('votes'))
 async def votes(message: types.Message, command: CommandObject):
-    res = requests.get(url + 'mail', data={'tgID': message.chat.id})
+    res = requests.get(url + 'mail', data={'tgid': message.chat.id})
     if res.ok:
-        ans = res.json()
-        vote_name: str = ans['vote_name']
-        start, end = ['start'], ['end']
-        link: str = f'https://aikido.ru/votes/{ans["vote_id"]}'
-        await message.answer(f'Вы участвуете в голосовании: *{vote_name}*\n'
-                             f'Сроки голосования: {start} \- {end}\n\n'
-                             f'[Перейти к голосованию]({link})')
+        answer = res.json()
+        if not answer:
+            await message.answer('Нет активных голосований')
+            return
+        for vote in answer:
+            vote_name: str = vote['title']
+            start_date: date = date.fromisoformat(vote['dateOfStart'])
+            end_date: date = date.fromisoformat(vote['dateOfEnd'])
+            link: str = vote['url']
+            content = Text(
+                'Вы участвуете в голосовании: ', Bold(vote_name), '\n',
+                'Сроки голосования: ', start_date.strftime("%H:%M %d.%m.%Y"), '\-',
+                end_date.strftime("%H:%M %d.%m.%Y"), '\n',
+                TextLink('Перейти к голосованию', url=link)
+            )
+            await message.answer(**content.as_kwargs())
     else:
-        await message.answer('Ошибка при проверке голосований')
+        await message.answer('Ошибка при проверке активных голосований')
 
 
 async def main():
