@@ -31,15 +31,16 @@ async def start(message: types.Message, command: CommandObject):
     command_args: str = command.args
     try:
         res = requests.post(url + 'start', data={'tgid': message.chat.id, 'token': command_args})
+
+        if res.ok:
+            await message.answer('Вы подписаны на уведомления')
+        elif res.status_code == 400:
+            await message.answer('Вы уже подписаны на уведомления')
+        else:
+            raise Exception
     except:
         await message.answer('Произошла ошибка при подписке на уведомления')
         return
-    if res.ok:
-        await message.answer('Вы подписаны на уведомления')
-    elif res.status_code == 400:
-        await message.answer('Вы уже подписаны на уведомления')
-    else:
-        await message.answer('Произошла ошибка при подписке на уведомления')
 
 
 # /mail handler
@@ -47,26 +48,25 @@ async def start(message: types.Message, command: CommandObject):
 async def mail(message: types.Message) -> None:
     try:
         res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+        if res.ok:
+            answer = res.json()
+            if not answer:
+                await message.answer('Нет новых писем')
+                return
+            for letter in answer['data']:
+                sender_name: str = letter['name']
+                # receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
+                receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
+                link: str = 'https://aikido.ru/mail/'
+                content = Text(
+                    'Вам пришло письмо от ', Bold(sender_name), '\n',
+                    'В ', receive_date.strftime("%H:%M %d.%m.%Y"), '\n',  # 14:30 07.12.2012
+                    TextLink('Перейти на сайт', url=link)
+                )
+                await message.answer(**content.as_kwargs())
+        else:
+            raise Exception
     except:
-        await message.answer('Произошла ошибка при проверке почты')
-        return
-    if res.ok:
-        answer = res.json()
-        if not answer:
-            await message.answer('Нет новых писем')
-            return
-        for letter in answer['data']:
-            sender_name: str = letter['name']
-            # receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
-            receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
-            link: str = 'https://aikido.ru/mail/'
-            content = Text(
-                'Вам пришло письмо от ', Bold(sender_name), '\n',
-                'В ', receive_date.strftime("%H:%M %d.%m.%Y"), '\n',  # 14:30 07.12.2012
-                TextLink('Перейти на сайт', url=link)
-            )
-            await message.answer(**content.as_kwargs())
-    else:
         await message.answer('Произошла ошибка при проверке почты')
 
 
@@ -75,28 +75,27 @@ async def mail(message: types.Message) -> None:
 async def votes(message: types.Message):
     try:
         res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+        if res.ok:
+            answer = res.json()
+            if not answer:
+                await message.answer('Нет активных голосований')
+                return
+            for vote in answer:
+                vote_name: str = vote['title']
+                start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                link: str = vote['url']
+                content = Text(
+                    'Вы участвуете в голосовании: ', Bold(vote_name), '\n',
+                    'Сроки голосования: ', start_date.strftime("%H:%M %d.%m.%Y"), '\-',
+                    end_date.strftime("%H:%M %d.%m.%Y"), '\n',
+                    TextLink('Перейти к голосованию', url=link)
+                )
+                await message.answer(**content.as_kwargs())
+        else:
+            raise Exception
     except:
-        await message.answer('Ошибка при проверке активных голосований')
-        return
-    if res.ok:
-        answer = res.json()
-        if not answer:
-            await message.answer('Нет активных голосований')
-            return
-        for vote in answer:
-            vote_name: str = vote['title']
-            start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
-            end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
-            link: str = vote['url']
-            content = Text(
-                'Вы участвуете в голосовании: ', Bold(vote_name), '\n',
-                'Сроки голосования: ', start_date.strftime("%H:%M %d.%m.%Y"), '\-',
-                end_date.strftime("%H:%M %d.%m.%Y"), '\n',
-                TextLink('Перейти к голосованию', url=link)
-            )
-            await message.answer(**content.as_kwargs())
-    else:
-        await message.answer('Ошибка при проверке активных голосований')
+        await message.answer('Произошла ошибка при проверке активных голосований')
 
 
 @dp.callback_query(F.data == "not_unsubscribe")
@@ -109,19 +108,18 @@ async def not_unsubscribe(callback: types.CallbackQuery):
 async def unsubscribe(callback: types.CallbackQuery):
     try:
         res = requests.delete(url + 'unsubscribe', data={'tgid': callback.from_user.id})
+        answer: Text
+        if res.ok:
+            answer = Text('Вы отписаны от уведомлений')
+        elif res.status_code == 400:
+            answer = Text('Вы не были подписаны на уведомления')
+        else:
+            raise Exception
+        await callback.message.edit_text(**answer.as_kwargs())
+        await callback.answer()
     except:
         await callback.message.answer(**Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.').as_kwargs())
         await callback.answer()
-        return
-    answer: Text
-    if res.ok:
-        answer = Text('Вы отписаны от уведомлений')
-    elif res.status_code == 400:
-        answer = Text('Вы не были подписаны на уведомления')
-    else:
-        answer = Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.')
-    await callback.message.edit_text(**answer.as_kwargs())
-    await callback.answer()
 
 
 # /unsubscribe handler
