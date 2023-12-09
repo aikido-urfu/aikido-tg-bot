@@ -19,13 +19,6 @@ url = 'localhost:123/telegram/'
 url = "https://reqres.in/api/"
 
 
-def load_settings():
-    global bot_token
-    with open('./settings.json', 'r', encoding='utf-8') as f:
-        settings = json.loads(f.read())
-        bot_token = settings['bot_token']
-
-
 # /start handler
 @dp.message(CommandStart(deep_link=True))
 async def start(message: types.Message, command: CommandObject):
@@ -148,5 +141,4 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
-    load_settings()
     asyncio.run(main())
