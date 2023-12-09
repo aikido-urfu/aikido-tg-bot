@@ -15,7 +15,7 @@ bot: Bot
 dp = Dispatcher()
 logging.basicConfig(level=logging.INFO)
 url = 'localhost:123/telegram/'
-# url = "https://reqres.in/api/"
+url = "https://reqres.in/api/"
 
 
 def load_settings():
@@ -29,9 +29,15 @@ def load_settings():
 @dp.message(CommandStart(deep_link=True))
 async def start(message: types.Message, command: CommandObject):
     command_args: str = command.args
-    res = requests.post(url + 'start', data={'tgid': message.chat.id, 'token': command_args})
+    try:
+        res = requests.post(url + 'start', data={'tgid': message.chat.id, 'token': command_args})
+    except:
+        await message.answer('Произошла ошибка при подписке на уведомления')
+        return
     if res.ok:
         await message.answer('Вы подписаны на уведомления')
+    elif res.status_code == 400:
+        await message.answer('Вы уже подписаны на уведомления')
     else:
         await message.answer('Произошла ошибка при подписке на уведомления')
 
@@ -39,16 +45,20 @@ async def start(message: types.Message, command: CommandObject):
 # /mail handler
 @dp.message(Command('mail'))
 async def mail(message: types.Message) -> None:
-    res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+    try:
+        res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+    except:
+        await message.answer('Произошла ошибка при проверке почты')
+        return
     if res.ok:
         answer = res.json()
         if not answer:
             await message.answer('Нет новых писем')
             return
-        for letter in answer:
-            sender_name: str = letter['sender']
-            receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
-            # receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
+        for letter in answer['data']:
+            sender_name: str = letter['name']
+            # receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
+            receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
             link: str = 'https://aikido.ru/mail/'
             content = Text(
                 'Вам пришло письмо от ', Bold(sender_name), '\n',
@@ -57,13 +67,17 @@ async def mail(message: types.Message) -> None:
             )
             await message.answer(**content.as_kwargs())
     else:
-        await message.answer('Ошибка при проверке почты')
+        await message.answer('Произошла ошибка при проверке почты')
 
 
 # /votes handler
 @dp.message(Command('votes'))
 async def votes(message: types.Message):
-    res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+    try:
+        res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+    except:
+        await message.answer('Ошибка при проверке активных голосований')
+        return
     if res.ok:
         answer = res.json()
         if not answer:
@@ -93,14 +107,20 @@ async def not_unsubscribe(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data == "unsubscribe")
 async def unsubscribe(callback: types.CallbackQuery):
-    res = requests.delete(url + 'unsubscribe', data={'tgid': callback.from_user.id})
+    try:
+        res = requests.delete(url + 'unsubscribe', data={'tgid': callback.from_user.id})
+    except:
+        await callback.message.answer(**Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.').as_kwargs())
+        await callback.answer()
+        return
+    answer: Text
     if res.ok:
-        await callback.message.answer('Вы отписаны от уведомлений')
+        answer = Text('Вы отписаны от уведомлений')
     elif res.status_code == 400:
-        await callback.message.answer('Вы не были подписаны на уведомления')
+        answer = Text('Вы не были подписаны на уведомления')
     else:
-        await callback.message.answer('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.')
-    await callback.message.delete()
+        answer = Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.')
+    await callback.message.edit_text(**answer.as_kwargs())
     await callback.answer()
 
 
