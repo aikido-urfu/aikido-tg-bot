@@ -4,6 +4,7 @@ from aiogram.filters.command import Command, CommandObject, CommandStart
 from aiogram.utils.formatting import Text, Bold, TextLink
 from aiogram.enums import ParseMode
 from aiogram.utils.keyboard import InlineKeyboardBuilder
+from config_reader import config
 import asyncio
 import logging
 import json
@@ -143,7 +144,7 @@ async def unsubscribe_handler(message: types.Message):
 
 async def main():
     global bot, dp
-    bot = Bot(bot_token, parse_mode=ParseMode.MARKDOWN_V2)
+    bot = Bot(config.bot_token.get_secret_value(), parse_mode=ParseMode.MARKDOWN_V2)
     await dp.start_polling(bot)
 
 if __name__ == '__main__':
