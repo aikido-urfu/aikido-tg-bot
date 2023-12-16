@@ -7,16 +7,25 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config_reader import config
 import asyncio
 import logging
-import json
 import requests
+import sys
 
+gettrace = getattr(sys, 'gettrace', None)
+log_file_name = 'bot.log'
+if gettrace is None:
+    print('No sys.gettrace')
+elif gettrace():
+    log_file_name = ''
 
-bot_token = ''
 bot: Bot
 dp = Dispatcher()
-logging.basicConfig(level=logging.INFO)
-url = 'localhost:123/telegram/'
-url = "https://reqres.in/api/"
+logging.basicConfig(level=logging.INFO,
+                    filename=log_file_name,
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    format="%(asctime)s %(levelname)s %(message)s",
+                    encoding='utf-8')
+url = config.api_url.get_secret_value()
+url = "https://reqres.in/api/"  # TEST
 
 
 # /start handler
@@ -47,15 +56,15 @@ async def mail(message: types.Message) -> None:
             if not answer:
                 await message.answer('Нет новых писем')
                 return
-            for letter in answer['data']:
-                sender_name: str = letter['name']
-                # receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
-                receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
+            for letter in answer:
+                sender_name: str = letter['sender']
+                receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
+                # receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
                 link: str = 'https://aikido.ru/mail/'
                 content = Text(
                     'Вам пришло письмо от ', Bold(sender_name), '\n',
                     'В ', receive_date.strftime("%H:%M %d.%m.%Y"), '\n',  # 14:30 07.12.2012
-                    TextLink('Перейти на сайт', url=link)
+                    TextLink('Посмотреть почту', url=link)
                 )
                 await message.answer(**content.as_kwargs())
         else:
