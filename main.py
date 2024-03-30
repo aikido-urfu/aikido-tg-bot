@@ -1,7 +1,12 @@
+import asyncio
+import re
+import shutil
+import signal
+import subprocess
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command, CommandObject, CommandStart
-from aiogram.utils.formatting import Text, Bold, TextLink
+from aiogram.utils.formatting import Text, Bold, TextLink, Italic, as_list, BotCommand
 from aiogram.enums import ParseMode
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from config_reader import config
@@ -9,6 +14,8 @@ import asyncio
 import logging
 import requests
 import sys
+import os
+import psutil
 
 gettrace = getattr(sys, 'gettrace', None)
 log_file_name = 'bot.log'
@@ -25,7 +32,28 @@ logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s %(levelname)s %(message)s",
                     encoding='utf-8')
 url = config.api_url.get_secret_value()
-url = "https://reqres.in/api/"  # TEST
+
+
+def rus_month(input_string):
+    months_translation = {
+        "January": "Января",
+        "February": "Февраля",
+        "March": "Марта",
+        "April": "Апреля",
+        "May": "Мая",
+        "June": "Июня",
+        "July": "Июля",
+        "August": "Августа",
+        "September": "Сентября",
+        "October": "Октября",
+        "November": "Ноября",
+        "December": "Декабря"
+    }
+    for english_month, russian_translation in months_translation.items():
+        if english_month in input_string:
+            input_string = input_string.replace(english_month, russian_translation)
+            break
+    return input_string
 
 
 # /start handler
@@ -50,7 +78,7 @@ async def start(message: types.Message, command: CommandObject):
 @dp.message(Command('mail'))
 async def mail(message: types.Message) -> None:
     try:
-        res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+        res = requests.get(url + 'mail')  # , data={'tgid': message.chat.id})
         if res.ok:
             answer = res.json()
             if not answer:
@@ -58,47 +86,58 @@ async def mail(message: types.Message) -> None:
                 return
             for letter in answer:
                 sender_name: str = letter['sender']
-                receive_date: datetime = datetime.strptime(letter['date'], "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
+                receive_date: datetime = datetime.strptime(letter['date'],
+                                                           "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
                 # receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
                 link: str = 'https://aikido.ru/mail/'
                 content = Text(
-                    'Вам пришло письмо от ', Bold(sender_name), '\n',
-                    'В ', receive_date.strftime("%H:%M %d.%m.%Y"), '\n',  # 14:30 07.12.2012
-                    TextLink('Посмотреть почту', url=link)
+                    '📬 ', 'Новое письмо', '\n',
+                    Bold('Имя отправителя: '), Italic(sender_name), '\n',
+                    Bold('Время получения: '), Italic(rus_month(receive_date.strftime("%H:%M, %d %B %Y"))), '\n',
+                    TextLink('🔗 Посмотреть почту', url=link)
                 )
                 await message.answer(**content.as_kwargs())
         else:
             raise Exception
-    except:
+    except Exception as err:
         await message.answer('Произошла ошибка при проверке почты')
+        logging.error(err)
 
 
 # /votes handler
 @dp.message(Command('votes'))
 async def votes(message: types.Message):
     try:
-        res = requests.get(url + 'mail', data={'tgid': message.chat.id})
+        res = requests.get(url + 'votes', data={'tgid': message.chat.id})
         if res.ok:
             answer = res.json()
             if not answer:
                 await message.answer('Нет активных голосований')
                 return
             for vote in answer:
-                vote_name: str = vote['title']
-                start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
-                end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                vote_name: str = vote['text']
+                # start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
+                # end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
                 link: str = vote['url']
+                date_format: str = "%H:%M, %d.%m.%Y"
+
+                # vote_name = 'Выбор названия клуба'
+                start_date = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
+                end_date = datetime.strptime('2012-12-05T18:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
+                # link = 'https://aikido.ru/votes/1/'
+
                 content = Text(
-                    'Вы участвуете в голосовании: ', Bold(vote_name), '\n',
-                    'Сроки голосования: ', start_date.strftime("%H:%M %d.%m.%Y"), '\-',
-                    end_date.strftime("%H:%M %d.%m.%Y"), '\n',
-                    TextLink('Перейти к голосованию', url=link)
+                    '🗳 ', Bold(f'Голосование: {vote_name}'), '\n',
+                    Italic('Сроки голосования: '), start_date.strftime(date_format), ' - ',
+                    end_date.strftime(date_format), '\n\n',
+                    TextLink('🔗 Перейти к голосованию', url=link)
                 )
                 await message.answer(**content.as_kwargs())
         else:
             raise Exception
-    except:
+    except Exception as err:
         await message.answer('Произошла ошибка при проверке активных голосований')
+        logging.error(err)
 
 
 @dp.callback_query(F.data == "not_unsubscribe")
@@ -121,7 +160,8 @@ async def unsubscribe(callback: types.CallbackQuery):
         await callback.message.edit_text(**answer.as_kwargs())
         await callback.answer()
     except:
-        await callback.message.answer(**Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.').as_kwargs())
+        await callback.message.answer(
+            **Text('Произошла ошибка при отписке от уведомлений.\nПопробуйте позже.').as_kwargs())
         await callback.answer()
 
 
@@ -144,10 +184,114 @@ async def unsubscribe_handler(message: types.Message):
     )
 
 
+async def kill_proc(server_type: str = None):
+    if server_type is None:
+        return
+
+    cur_proc: asyncio.subprocess.Process | None = dp.get(server_type)
+
+    if cur_proc:
+        for child in psutil.Process(cur_proc.pid).children(recursive=True):
+            try:
+                child.kill()
+            except:
+                pass
+        cur_proc.kill()
+        await cur_proc.wait()
+        if cur_proc.returncode == 1:
+            dp[server_type] = None
+        logging.info(f'kill_proc of {server_type}')
+        # cur_proc.send_signal(signal.CTRL_C_EVENT)
+        # cur_proc.send_signal(signal.SIGINT)
+        # await cur_proc.wait()
+
+
+# @dp.message(Command('kill'))
+@dp.message(Command(re.compile(r'^kill_(web|server|files|all)$')))
+async def kill(message: types.Message, command: CommandObject):
+    picked_upd_type = message.text.replace('/kill_', '')
+    await kill_proc(picked_upd_type)
+
+
+def copy_and_replace(source_path, destination_path):
+    if os.path.exists(destination_path):
+        os.remove(destination_path)
+    shutil.copy2(source_path, destination_path)
+
+
+# @dp.message(Command('update'))
+@dp.message(Command(re.compile(r'^update_(web|server|files|all)$')))
+async def update(message: types.Message):
+    upd_type = {
+        'web': 'aikido-web-core',
+        'server': 'aikido-server-core',
+        'files': 'aikido-server-files',
+        'all': 'all'
+    }
+    commands = [
+        ['git', 'fetch'],
+        ['git', 'stash', '-u'],
+        ['git', 'pull', '--force'],
+        ['npm', 'i'],
+    ]
+    run_commands = {
+        'web': 'npx webpack serve --config webpack.config.dev.js --port 3004',
+        'server': 'npm start',
+        'files': '',
+        'all': 'all',
+    }
+    picked_upd_type = message.text.replace('/update_', '')
+
+    if picked_upd_type == 'all':
+        return
+
+    if picked_upd_type == 'files':
+        return
+
+    await kill_proc(picked_upd_type)
+
+    folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
+    for cmd in commands:
+        result = subprocess.run(cmd,
+                                capture_output=True,
+                                text=True,
+                                cwd=folder,
+                                shell=True)
+        logging.info(f'Update of {picked_upd_type}: {result}')
+
+    if picked_upd_type == 'server':
+        copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
+
+    proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
+                                                 cwd=folder,
+                                                 shell=True,
+                                                 stdout=asyncio.subprocess.PIPE,
+                                                 stderr=asyncio.subprocess.PIPE)
+    dp[picked_upd_type] = proc
+
+
+@dp.message(Command('server'))
+async def server_cmd(message: types.Message):
+    content = Text(
+        as_list(
+            BotCommand('/update_', 'web'),
+            BotCommand('/update_', 'server'),
+            BotCommand('/update_', 'files'),
+            BotCommand('/update_', 'all'),
+            BotCommand('/kill_', 'web'),
+            BotCommand('/kill_', 'server'),
+            BotCommand('/kill_', 'files'),
+            BotCommand('/kill_', 'all'),
+        )
+    )
+    await message.answer(**content.as_kwargs())
+
+
 async def main():
     global bot, dp
     bot = Bot(config.bot_token.get_secret_value(), parse_mode=ParseMode.MARKDOWN_V2)
     await dp.start_polling(bot)
+
 
 if __name__ == '__main__':
     asyncio.run(main())
