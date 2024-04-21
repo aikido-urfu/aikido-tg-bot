@@ -200,6 +200,8 @@ async def kill_proc(server_type: str = None):
         await cur_proc.wait()
         if cur_proc.returncode == 1:
             dp[server_type] = None
+        else:
+            raise Exception('Произошла ошибка во время завершения процесса')
         logging.info(f'kill_proc of {server_type}')
         # cur_proc.send_signal(signal.CTRL_C_EVENT)
         # cur_proc.send_signal(signal.SIGINT)
@@ -210,7 +212,12 @@ async def kill_proc(server_type: str = None):
 @dp.message(Command(re.compile(r'^kill_(web|server|files|all)$')))
 async def kill(message: types.Message, command: CommandObject):
     picked_upd_type = message.text.replace('/kill_', '')
-    await kill_proc(picked_upd_type)
+    try:
+        await kill_proc(picked_upd_type)
+        await message.answer(f'Процесс {picked_upd_type} завершен.')
+    except Exception as err:
+        await message.answer('Произошла ошибка во время завершения процесса')
+        logging.error(f'app_kill: {err}')
 
 
 def copy_and_replace(source_path, destination_path):
@@ -247,27 +254,31 @@ async def update(message: types.Message):
 
     if picked_upd_type == 'files':
         return
+    try:
+        await kill_proc(picked_upd_type)
 
-    await kill_proc(picked_upd_type)
+        folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
+        for cmd in commands:
+            result = subprocess.run(cmd,
+                                    capture_output=True,
+                                    text=True,
+                                    cwd=folder,
+                                    shell=True)
+            logging.info(f'Update of {picked_upd_type}: {result}')
 
-    folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
-    for cmd in commands:
-        result = subprocess.run(cmd,
-                                capture_output=True,
-                                text=True,
-                                cwd=folder,
-                                shell=True)
-        logging.info(f'Update of {picked_upd_type}: {result}')
+        if picked_upd_type == 'server':
+            copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
 
-    if picked_upd_type == 'server':
-        copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
-
-    proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
-                                                 cwd=folder,
-                                                 shell=True,
-                                                 stdout=asyncio.subprocess.PIPE,
-                                                 stderr=asyncio.subprocess.PIPE)
-    dp[picked_upd_type] = proc
+        proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
+                                                     cwd=folder,
+                                                     shell=True,
+                                                     stdout=asyncio.subprocess.PIPE,
+                                                     stderr=asyncio.subprocess.PIPE)
+        dp[picked_upd_type] = proc
+        await message.answer(f'{picked_upd_type} был успешно обновлен')
+    except Exception as err:
+        await message.answer('Произошла ошибка во время обновления приложения')
+        logging.error(f'app_update: {err}')
 
 
 @dp.message(Command(re.compile(r'^start_(web|server|files|all)$')))
@@ -299,9 +310,10 @@ async def start(message: types.Message):
                                                      stdout=asyncio.subprocess.PIPE,
                                                      stderr=asyncio.subprocess.PIPE)
         dp[picked_upd_type] = proc
+        await message.answer(f'{picked_upd_type} успешно запущен')
     except Exception as err:
+        await message.answer('Произошла ошибка при старте приложения')
         logging.error(f'app_start: {err}')
-        await message.answer(err)
 
 
 @dp.message(Command('server'))
