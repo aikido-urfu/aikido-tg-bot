@@ -114,7 +114,7 @@ async def votes(message: types.Message):
             if not answer:
                 await message.answer('Нет активных голосований')
                 return
-            for vote in answer:
+            for vote in answer['votes']:
                 vote_name: str = vote['text']
                 # start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
                 # end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
@@ -193,10 +193,10 @@ async def kill_proc(server_type: str = None):
     if cur_proc:
         for child in psutil.Process(cur_proc.pid).children(recursive=True):
             try:
-                child.kill()
+                child.terminate()
             except:
                 pass
-        cur_proc.kill()
+        cur_proc.terminate()
         await cur_proc.wait()
         if cur_proc.returncode == 1:
             dp[server_type] = None
@@ -270,10 +270,48 @@ async def update(message: types.Message):
     dp[picked_upd_type] = proc
 
 
+@dp.message(Command(re.compile(r'^start_(web|server|files|all)$')))
+async def start(message: types.Message):
+    upd_type = {
+        'web': 'aikido-web-core',
+        'server': 'aikido-server-core',
+        'files': 'aikido-server-files',
+        'all': 'all'
+    }
+    run_commands = {
+        'web': 'npx webpack serve --config webpack.config.dev.js --port 3004',
+        'server': 'npm start',
+        'files': '',
+        'all': 'all',
+    }
+    try:
+        picked_upd_type = message.text.replace('/update_', '')
+        folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
+        if picked_upd_type in ['files', 'all']:
+            return
+        if dp.get(picked_upd_type):
+            await kill_proc(picked_upd_type)
+        if picked_upd_type == 'server':
+            copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
+        proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
+                                                     cwd=folder,
+                                                     shell=True,
+                                                     stdout=asyncio.subprocess.PIPE,
+                                                     stderr=asyncio.subprocess.PIPE)
+        dp[picked_upd_type] = proc
+    except Exception as err:
+        logging.error(f'app_start: {err}')
+        await message.answer(err)
+
+
 @dp.message(Command('server'))
 async def server_cmd(message: types.Message):
     content = Text(
         as_list(
+            BotCommand('/start_', 'web'),
+            BotCommand('/start_', 'server'),
+            BotCommand('/start_', 'files'),
+            BotCommand('/start_', 'all'),
             BotCommand('/update_', 'web'),
             BotCommand('/update_', 'server'),
             BotCommand('/update_', 'files'),
