@@ -1,3 +1,4 @@
+import logs
 import asyncio
 import re
 import shutil
@@ -17,20 +18,8 @@ import sys
 import os
 import psutil
 
-gettrace = getattr(sys, 'gettrace', None)
-log_file_name = 'bot.log'
-if gettrace is None:
-    print('No sys.gettrace')
-elif gettrace():
-    log_file_name = ''
-
 bot: Bot
 dp = Dispatcher()
-logging.basicConfig(level=logging.INFO,
-                    filename=log_file_name,
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    format="%(asctime)s %(levelname)s %(message)s",
-                    encoding='utf-8')
 url = config.api_url.get_secret_value()
 
 
@@ -72,36 +61,6 @@ async def start(message: types.Message, command: CommandObject):
     except:
         await message.answer('Произошла ошибка при подписке на уведомления')
         return
-
-
-# /mail handler
-@dp.message(Command('mail'))
-async def mail(message: types.Message) -> None:
-    try:
-        res = requests.get(url + 'mail')  # , data={'tgid': message.chat.id})
-        if res.ok:
-            answer = res.json()
-            if not answer:
-                await message.answer('Нет новых писем')
-                return
-            for letter in answer:
-                sender_name: str = letter['sender']
-                receive_date: datetime = datetime.strptime(letter['date'],
-                                                           "%Y-%m-%dT%H:%M:%S.%f%z")  # '2012-11-04T14:51:06.157Z'
-                # receive_date: datetime = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
-                link: str = 'https://aikido.ru/mail/'
-                content = Text(
-                    '📬 ', 'Новое письмо', '\n',
-                    Bold('Имя отправителя: '), Italic(sender_name), '\n',
-                    Bold('Время получения: '), Italic(rus_month(receive_date.strftime("%H:%M, %d %B %Y"))), '\n',
-                    TextLink('🔗 Посмотреть почту', url=link)
-                )
-                await message.answer(**content.as_kwargs())
-        else:
-            raise Exception
-    except Exception as err:
-        await message.answer('Произошла ошибка при проверке почты')
-        logging.error(err)
 
 
 # /votes handler
