@@ -247,7 +247,7 @@ async def update(message: types.Message):
         'files': '',
         'all': 'all',
     }
-    picked_upd_type = message.text.replace('/update_', '')
+    picked_upd_type = message.text.replace('/start_', '')
 
     if picked_upd_type == 'all':
         return
@@ -264,7 +264,7 @@ async def update(message: types.Message):
                                     text=True,
                                     cwd=folder,
                                     shell=True)
-            logging.info(f'Update of {picked_upd_type}: {result}')
+            logging.info(f'Start of {picked_upd_type}: {result}')
 
         if picked_upd_type == 'server':
             copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
@@ -316,7 +316,7 @@ async def start(message: types.Message):
         logging.error(f'app_start: {err}')
 
 
-@dp.message(Command('server'))
+@dp.message(Command('hosting'))
 async def server_cmd(message: types.Message):
     content = Text(
         as_list(
