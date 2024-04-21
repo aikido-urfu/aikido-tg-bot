@@ -191,17 +191,18 @@ async def kill_proc(server_type: str = None):
     cur_proc: asyncio.subprocess.Process | None = dp.get(server_type)
 
     if cur_proc:
-        for child in psutil.Process(cur_proc.pid).children(recursive=True):
-            try:
+        try:
+            for child in psutil.Process(cur_proc.pid).children(recursive=True):
                 child.terminate()
-            except:
-                pass
-        cur_proc.terminate()
-        await cur_proc.wait()
-        if cur_proc.returncode == 1:
+            cur_proc.terminate()
+            await cur_proc.wait()
+        except:
             dp[server_type] = None
-        else:
-            raise Exception('Произошла ошибка во время завершения процесса')
+        dp[server_type] = None
+        # if cur_proc.returncode == 1:
+        #     dp[server_type] = None
+        # else:
+        #     raise Exception()
         logging.info(f'kill_proc of {server_type}')
         # cur_proc.send_signal(signal.CTRL_C_EVENT)
         # cur_proc.send_signal(signal.SIGINT)
@@ -214,7 +215,7 @@ async def kill(message: types.Message, command: CommandObject):
     picked_upd_type = message.text.replace('/kill_', '')
     try:
         await kill_proc(picked_upd_type)
-        await message.answer(f'Процесс {picked_upd_type} завершен.')
+        await message.answer(f'Процесс {picked_upd_type} завершен')
     except Exception as err:
         await message.answer('Произошла ошибка во время завершения процесса')
         logging.error(f'app_kill: {err}')
@@ -247,7 +248,7 @@ async def update(message: types.Message):
         'files': '',
         'all': 'all',
     }
-    picked_upd_type = message.text.replace('/start_', '')
+    picked_upd_type = message.text.replace('/update_', '')
 
     if picked_upd_type == 'all':
         return
@@ -296,7 +297,7 @@ async def start(message: types.Message):
         'all': 'all',
     }
     try:
-        picked_upd_type = message.text.replace('/update_', '')
+        picked_upd_type = message.text.replace('/start_', '')
         folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
         if picked_upd_type in ['files', 'all']:
             return
