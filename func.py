@@ -35,8 +35,8 @@ async def kill_proc(server_type: str = None):
 
 
 # DEBUG
-async def send_msg(json: str):
-    await st.bot.send_message(int(config.debug_chat_id.get_secret_value()), **Text(json).as_kwargs())
+async def send_msg(msg: str):
+    await st.bot.send_message(int(config.debug_chat_id.get_secret_value()), **Text(msg).as_kwargs())
 
 
 async def handle_new_vote(data):

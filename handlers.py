@@ -166,8 +166,8 @@ async def update(message: types.Message):
                                     shell=True)
             logging.info(f'Start of {picked_upd_type}: {result}')
 
-        if picked_upd_type == 'server':
-            copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
+        # if picked_upd_type == 'server':
+        #     copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
 
         proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
                                                      cwd=folder,
@@ -202,8 +202,8 @@ async def start(message: types.Message):
             return
         if dp.get(picked_upd_type):
             await kill_proc(picked_upd_type)
-        if picked_upd_type == 'server':
-            copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
+        # if picked_upd_type == 'server':
+        #     copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
         proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
                                                      cwd=folder,
                                                      shell=True,

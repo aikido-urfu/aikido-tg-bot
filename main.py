@@ -13,6 +13,7 @@ import handlers
 async def webhook_setup():
     app = web.Application()
     app.add_routes(webhook.routes)
+    app.middlewares.append(webhook.auth)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, config.base_host.get_secret_value(), 3007)
