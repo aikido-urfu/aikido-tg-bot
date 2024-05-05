@@ -1,3 +1,5 @@
+import logging
+
 from aiohttp import web
 import func
 from config_reader import config
@@ -16,9 +18,13 @@ async def auth(request: web.Request, handler: web.Callable):
 # WebHook for new votes
 @routes.post('/votes/new')
 async def new_vote(request: web.Request):
-    data = await request.json()
-    await func.handle_new_vote(data)
-    return web.Response(status=200)
+    try:
+        data = await request.json()
+        await func.handle_new_vote(data)
+        return web.Response(status=200)
+    except Exception as err:
+        logging.error(f'new_vote: {err}')
+        return web.Response(status=500)
 
 
 # WebHook for vote results / vote end
