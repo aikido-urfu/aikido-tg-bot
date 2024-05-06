@@ -1,11 +1,13 @@
 import asyncio
 from datetime import datetime
 import logging
+from collections.abc import Callable
+
 import psutil
 import settings as st
-from config_reader import config
 from aiogram.utils.formatting import Text, Bold, Italic, TextLink
-from settings import dp
+from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, VoteRoot
+from utils import parse_date
 
 
 # DEBUG int(config.debug_chat_id.get_secret_value())
@@ -13,24 +15,70 @@ async def send_msg(user_id: int, content: Text):
     await st.bot.send_message(user_id, **content.as_kwargs())
 
 
-async def send_vote(user_id: int, vote: dict):
+def get_vote_msg(vote: NewVoteStructure) -> Text:
     try:
-        vote_name: str = vote['voteName']
-        start_date: datetime = datetime.strptime(vote['voteStartDate'], "%Y-%m-%dT%H:%M:%S.%f%z")
-        end_date: datetime = datetime.strptime(vote['voteEndDate'], "%Y-%m-%dT%H:%M:%S.%f%z")
-        # link: str = vote['url']
+        start_date = parse_date(vote.startDate)
+        end_date = parse_date(vote.endDate)
         date_format: str = "%H:%M, %d.%m.%Y"
         link = 'http://aikido.sytes.net/vote'
 
         content = Text(
-            '🗳 ', Bold(f'Голосование: {vote_name}'), '\n',
+            '🗳 ', Bold(f'Голосование: {vote.title}'), '\n',
             Italic('Сроки голосования: '), start_date.strftime(date_format), ' - ',
             end_date.strftime(date_format), '\n\n',
             TextLink('🔗 Перейти к голосованию', url=link)
         )
-        await send_msg(int(user_id), content)
+        return content
     except Exception as err:
-        error = Exception(f'send_vote: {err}')
+        error = Exception(f'get_vote_msg: {err}')
+        logging.error(error)
+        raise error
+
+
+def get_results_msg(vote: VoteResultsStructure) -> Text:
+    try:
+        link = f'http://aikido.sytes.net/vote/{vote.voteId}/results'
+
+        content = Text(
+            '🗳 ', Bold(f'Голосование: {vote.title} завершилось'), '\n',
+            TextLink('🔗 Посмотреть результаты', url=link)
+        )
+        return content
+    except Exception as err:
+        error = Exception(f'send_results: {err}')
+        logging.error(error)
+        raise error
+
+
+def get_reminder_msg(vote: VoteReminderStructure) -> Text:
+    try:
+        date_format: str = "%H:%M, %d.%m.%Y"
+        end_date: datetime = parse_date(vote.endDate)
+        link = f'http://aikido.sytes.net/vote/{vote.voteId}'
+
+        content = Text(
+            '🗳 ', Bold(f'Голосование {vote.title} скоро закончится!'), '\n',
+            '⌛️ Успейте проголосовать до ', end_date.strftime(date_format), '\n',
+            TextLink('🔗 Перейти к голосованию', url=link)
+        )
+        return content
+    except Exception as err:
+        error = Exception(f'send_reminder: {err}')
+        logging.error(error)
+        raise error
+
+
+def get_answer_msg(discussion: DiscussionAnswerStructure) -> Text:
+    try:
+        link = f'http://aikido.sytes.net/vote/{discussion.voteId}/discussion'
+
+        content = Text(
+            '🗳 ', Bold(f'Вам ответили в обсуждении: {discussion.title}'), '\n',
+            TextLink('🔗 Посмотреть ответ', url=link)
+        )
+        return content
+    except Exception as err:
+        error = Exception(f'send_answer: {err}')
         logging.error(error)
         raise error
 
@@ -60,6 +108,8 @@ async def kill_proc(server_type: str = None):
         # await cur_proc.wait()
 
 
-async def handle_new_vote(data):
-    for user in data['userIds']:
-        await send_vote(user, data)
+# TODO: Последовательная рассылка для упреждения ограничений телеграм
+async def handle_notification(data: VoteRoot, send_func: Callable[[VoteRoot.__subclasses__()], Text]):
+    for user in data.tgUserIds:
+        content = send_func(data)
+        await send_msg(user, content)

@@ -1,5 +1,6 @@
 import os
 import shutil
+from datetime import datetime
 
 
 def rus_month(input_string):
@@ -29,5 +30,9 @@ def copy_and_replace(source_path, destination_path):
         os.remove(destination_path)
     shutil.copy2(source_path, destination_path)
 
+
+# Converts ISO date string to datetime
+def parse_date(date: str) -> datetime:
+    return datetime.strptime(date, "%Y-%m-%dT%H:%M:%S.%f%z")
 
 
