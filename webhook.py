@@ -73,3 +73,9 @@ async def discussion_answer(request: web.Request):
     except Exception as err:
         logging.error(f'discussion_answer: {err}')
         return web.Response(status=500)
+
+
+# Hello server response
+@routes.get('/')
+async def hello(request: web.Request):
+    return web.Response(status=200, body='Telegram bot is running!')
