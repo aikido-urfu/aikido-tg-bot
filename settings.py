@@ -13,7 +13,7 @@ routes = web.RouteTableDef()
 
 class VoteRoot(BaseModel):
     voteId: int = Field(..., alias='id')
-    title: str = Field(..., alias='voteName', description='Vote name')
+    title: str = Field(..., serialization_alias='voteName', description='Vote name')
     tgUserIds: list[int]
 
     class Config:
