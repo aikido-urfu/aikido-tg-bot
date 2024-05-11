@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     bot_token: SecretStr
-    api_url: SecretStr
+    server_url: SecretStr
     git_path: SecretStr
     base_host: SecretStr
     debug_chat_id: SecretStr

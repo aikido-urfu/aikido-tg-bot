@@ -11,9 +11,9 @@ from aiogram.utils.formatting import Text, Bold, TextLink, Italic, as_list, BotC
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from datetime import datetime
 
-from settings import cmd_router, dp
+from settings import cmd_router, dp, UserStartStructure
 from config_reader import config
-from func import kill_proc
+from func import kill_proc, link_telegram, unlink_telegram
 from utils import copy_and_replace
 
 
@@ -22,14 +22,15 @@ from utils import copy_and_replace
 async def start(message: types.Message, command: CommandObject):
     command_args: str = command.args
     try:
-        res = requests.post(st.url + 'start', data={'tgid': message.chat.id, 'token': command_args})
+        user = UserStartStructure(token=command_args, telegramUserID=str(message.chat.id))
+        res = await link_telegram(user)
 
         if res.ok:
             await message.answer('Вы подписаны на уведомления')
-        elif res.status_code == 400:
+        elif res.status_code == 409:
             await message.answer('Вы уже подписаны на уведомления')
         else:
-            raise Exception
+            raise Exception("Internal error")
     except:
         await message.answer('Произошла ошибка при подписке на уведомления')
         return
@@ -80,14 +81,15 @@ async def not_unsubscribe(callback: types.CallbackQuery):
 @cmd_router.callback_query(F.data == "unsubscribe")
 async def unsubscribe(callback: types.CallbackQuery):
     try:
-        res = requests.delete(st.url + 'unsubscribe', data={'tgid': callback.from_user.id})
+        res = await unlink_telegram(callback.from_user.id)
+
         answer: Text
         if res.ok:
             answer = Text('Вы отписаны от уведомлений')
-        elif res.status_code == 400:
+        elif res.status_code == 409:
             answer = Text('Вы не были подписаны на уведомления')
         else:
-            raise Exception
+            raise Exception("Internal error")
         await callback.message.edit_text(**answer.as_kwargs())
         await callback.answer()
     except:
@@ -113,6 +115,7 @@ async def unsubscribe_handler(message: types.Message):
         'Вы уверены, что хотите отписаться?',
         reply_markup=builder.as_markup(),
     )
+
 
 # @dp.message(Command('kill'))
 @cmd_router.message(Command(re.compile(r'^kill_(web|server|files|all)$')))

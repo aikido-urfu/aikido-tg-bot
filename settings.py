@@ -7,7 +7,7 @@ from typing import Optional
 dp: Dispatcher = Dispatcher()
 cmd_router: Router = Router()
 bot: Bot
-url = config.api_url.get_secret_value()
+url = config.server_url.get_secret_value()
 routes = web.RouteTableDef()
 
 
@@ -37,3 +37,8 @@ class VoteReminderStructure(VoteRoot):
 
 class VoteResultsStructure(VoteRoot):
     results: None
+
+
+class UserStartStructure(BaseModel):
+    token: str
+    telegramUserID: str = None

@@ -4,9 +4,11 @@ import logging
 from collections.abc import Callable
 
 import psutil
+import requests
+
 import settings as st
 from aiogram.utils.formatting import Text, Bold, Italic, TextLink
-from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, VoteRoot
+from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, VoteRoot, UserStartStructure
 from utils import parse_date
 
 
@@ -106,6 +108,26 @@ async def kill_proc(server_type: str = None):
         # cur_proc.send_signal(signal.CTRL_C_EVENT)
         # cur_proc.send_signal(signal.SIGINT)
         # await cur_proc.wait()
+
+
+async def link_telegram(user: UserStartStructure):
+    try:
+        res = requests.post(f"{st.url}telegram/start", json=user.model_dump())
+        return res
+    except Exception as err:
+        error = Exception(f'link_telegram: {err}')
+        logging.error(error)
+        raise error
+
+
+async def unlink_telegram(tgUserId: int):
+    try:
+        res = requests.delete(f"{st.url}telegram/unsubscribe", json={'telegramUserID': str(tgUserId)})
+        return res
+    except Exception as err:
+        error = Exception(f'unlink_telegram: {err}')
+        logging.error(error)
+        raise error
 
 
 # TODO: Последовательная рассылка для упреждения ограничений телеграм
