@@ -1,3 +1,4 @@
+import pydantic
 from aiogram import Bot, Dispatcher, Router
 from config_reader import config
 from aiohttp import web
@@ -13,7 +14,7 @@ routes = web.RouteTableDef()
 
 class VoteRoot(BaseModel):
     voteId: int = Field(..., alias='id')
-    title: str = Field(..., alias='voteName', description='Vote name')
+    title: str = Field(...)
     tgUserIds: list[int]
 
     class Config:
@@ -31,12 +32,13 @@ class DiscussionAnswerStructure(VoteRoot):
     messageDate: str
 
 
-class VoteReminderStructure(VoteRoot):
-    endDate: str
+class VoteReminderStructure(BaseModel):
+    _EXT_VoteRoot = pydantic.create_model('_EXT_Vote_model', endDate=str, __base__=VoteRoot, )
+    votes: list[_EXT_VoteRoot]
 
 
-class VoteResultsStructure(VoteRoot):
-    results: None
+class VoteResultsStructure(BaseModel):
+    votes: list[VoteRoot]
 
 
 class UserStartStructure(BaseModel):

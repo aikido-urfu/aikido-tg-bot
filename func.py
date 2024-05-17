@@ -47,12 +47,12 @@ def get_results_msg(vote: VoteResultsStructure) -> Text:
         )
         return content
     except Exception as err:
-        error = Exception(f'send_results: {err}')
+        error = Exception(f'get_results_msg: {err}')
         logging.error(error)
         raise error
 
 
-def get_reminder_msg(vote: VoteReminderStructure) -> Text:
+def get_reminder_msg(vote: VoteRoot.__subclasses__()) -> Text:
     try:
         date_format: str = "%H:%M, %d.%m.%Y"
         end_date: datetime = parse_date(vote.endDate)
@@ -65,7 +65,7 @@ def get_reminder_msg(vote: VoteReminderStructure) -> Text:
         )
         return content
     except Exception as err:
-        error = Exception(f'send_reminder: {err}')
+        error = Exception(f'get_reminder_msg: {err}')
         logging.error(error)
         raise error
 
@@ -80,7 +80,7 @@ def get_answer_msg(discussion: DiscussionAnswerStructure) -> Text:
         )
         return content
     except Exception as err:
-        error = Exception(f'send_answer: {err}')
+        error = Exception(f'get_answer_msg: {err}')
         logging.error(error)
         raise error
 
@@ -135,3 +135,78 @@ async def handle_notification(data: VoteRoot, send_func: Callable[[VoteRoot.__su
     for user in data.tgUserIds:
         content = send_func(data)
         await send_msg(user, content)
+
+
+# Check every 12 hours
+async def get_expiring_votes(period: int):
+    try:
+        res = requests.get(f"{st.url}telegram/expiringVotes", params={'period': period})
+        return res
+    except Exception as err:
+        error = Exception(f'get_expiring_votes: {err}')
+        logging.error(error)
+        raise error
+
+
+async def get_expired_votes(period: int):
+    try:
+        res = requests.get(f"{st.url}telegram/expiredVotes", params={'period': period})
+        return res
+    except Exception as err:
+        error = Exception(f'get_expired_votes: {err}')
+        logging.error(error)
+        raise error
+
+
+async def results_notifier():
+    try:
+        logging.info(f'results_notifier: called')
+        period = 10800
+        res = await get_expired_votes(period)
+
+        if not res.ok:
+            raise Exception
+
+        data = res.json()
+        expired_votes = VoteResultsStructure.model_validate(data)
+        pass
+        for vote in expired_votes.votes:
+            await handle_notification(vote, get_results_msg)
+        logging.info(f'results_notifier: {len(expired_votes.votes)} votes ended')
+    except Exception as err:
+        logging.error(err)
+
+
+async def expiring_notifier():
+    try:
+        logging.info(f'expiring_notifier: called')
+        period = 10800
+        res = await get_expiring_votes(period)
+
+        if not res.ok:
+            raise Exception
+
+        data = res.json()
+        expiring_votes = VoteReminderStructure.model_validate(data)
+        pass
+        for vote in expiring_votes.votes:
+            await handle_notification(vote, get_reminder_msg)
+        logging.info(f'expiring_notifier: {len(expiring_votes.votes)} votes will end soon')
+    except Exception as err:
+        logging.error(err)
+
+
+# Каждые 3 часа получать голосования, которые закончились и, у которых через сутки конец
+# Т.е. берем все голосования, где (endDate - сутки) < currentTime
+
+
+
+# expired = endDate < current && endDate >= (cur - 3hours)
+# expiring = endDate > current && endDate < (cur + 3hours)
+# newExpiring = endDate >= (cur + 24h - 3h) && endDate <= (cur + 24h)
+#
+# expirind + expired = endDate >= (cur - 3h) && endDate <= (cur + 24h)
+#
+#
+# expired = endDate >= (cur - 3h) && endDate < (cur)
+# expiring = endDate >= (cur + 24h - 3h) && endDate < (cur + 24h)

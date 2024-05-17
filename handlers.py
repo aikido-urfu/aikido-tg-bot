@@ -13,7 +13,7 @@ from datetime import datetime
 
 from settings import cmd_router, dp, UserStartStructure
 from config_reader import config
-from func import kill_proc, link_telegram, unlink_telegram
+from func import kill_proc, link_telegram, unlink_telegram, results_notifier
 from utils import copy_and_replace
 
 
@@ -240,6 +240,10 @@ async def server_cmd(message: types.Message):
     await message.answer(**content.as_kwargs())
 
 
+@cmd_router.message(Command('test'))
+async def test(message: types.Message):
+    tes1 = await results_notifier()
+    pass
 
 
 

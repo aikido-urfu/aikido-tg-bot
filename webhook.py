@@ -30,36 +30,6 @@ async def new_vote(request: web.Request):
         return web.Response(status=500)
 
 
-# WebHook for vote results / vote end
-@routes.post('/votes/results')
-async def vote_results(request: web.Request):
-    try:
-        data = VoteResultsStructure.model_validate(await request.json())
-        await handle_notification(data, get_results_msg)
-        return web.Response(status=200)
-    except ValidationError as val_err:
-        logging.error(f'vote_results: {val_err}')
-        return web.Response(status=400, reason='Data validation error')
-    except Exception as err:
-        logging.error(f'vote_results: {err}')
-        return web.Response(status=500)
-
-
-# WebHook for vote expiration
-@routes.post('/votes/reminder')
-async def vote_expire(request: web.Request):
-    try:
-        data = VoteReminderStructure.model_validate(await request.json())
-        await handle_notification(data, get_reminder_msg)
-        return web.Response(status=200)
-    except ValidationError as val_err:
-        logging.error(f'vote_expire: {val_err}')
-        return web.Response(status=400, reason='Data validation error')
-    except Exception as err:
-        logging.error(f'vote_expire: {err}')
-        return web.Response(status=500)
-
-
 # WebHook for answer in discussion
 @routes.post('/discussion/answer')
 async def discussion_answer(request: web.Request):
