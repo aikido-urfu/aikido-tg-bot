@@ -38,8 +38,8 @@ async def repeat(interval, func, *args, **kwargs):
 
 # 10800 - 3h
 async def periodic_task_setup():
-    await asyncio.ensure_future(repeat(10800, results_notifier))
-    await asyncio.ensure_future(repeat(21600, expiring_notifier))
+    asyncio.create_task(repeat(10800, results_notifier))
+    asyncio.create_task(repeat(21600, expiring_notifier))
 
 
 async def main():

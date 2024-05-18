@@ -180,7 +180,7 @@ async def results_notifier():
 async def expiring_notifier():
     try:
         logging.info(f'expiring_notifier: called')
-        period = 10800
+        period = 21600
         res = await get_expiring_votes(period)
 
         if not res.ok:

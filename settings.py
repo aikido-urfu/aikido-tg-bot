@@ -33,7 +33,7 @@ class DiscussionAnswerStructure(VoteRoot):
 
 
 class VoteReminderStructure(BaseModel):
-    _EXT_VoteRoot = pydantic.create_model('_EXT_Vote_model', endDate=str, __base__=VoteRoot, )
+    _EXT_VoteRoot = pydantic.create_model('_EXT_Vote_model', endDate=(str, ...), __base__=VoteRoot, )
     votes: list[_EXT_VoteRoot]
 
 
