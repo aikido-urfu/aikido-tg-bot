@@ -194,19 +194,3 @@ async def expiring_notifier():
         logging.info(f'expiring_notifier: {len(expiring_votes.votes)} votes will end soon')
     except Exception as err:
         logging.error(err)
-
-
-# Каждые 3 часа получать голосования, которые закончились и, у которых через сутки конец
-# Т.е. берем все голосования, где (endDate - сутки) < currentTime
-
-
-
-# expired = endDate < current && endDate >= (cur - 3hours)
-# expiring = endDate > current && endDate < (cur + 3hours)
-# newExpiring = endDate >= (cur + 24h - 3h) && endDate <= (cur + 24h)
-#
-# expirind + expired = endDate >= (cur - 3h) && endDate <= (cur + 24h)
-#
-#
-# expired = endDate >= (cur - 3h) && endDate < (cur)
-# expiring = endDate >= (cur + 24h - 3h) && endDate < (cur + 24h)

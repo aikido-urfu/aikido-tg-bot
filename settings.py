@@ -27,9 +27,9 @@ class NewVoteStructure(VoteRoot):
 
 
 class DiscussionAnswerStructure(VoteRoot):
-    messageAuthor: str
-    message: str
-    messageDate: str
+    message: str = None
+    messageAuthor: str = None
+    messageDate: str = None
 
 
 class VoteReminderStructure(BaseModel):
