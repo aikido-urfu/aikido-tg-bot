@@ -22,7 +22,7 @@ def get_vote_msg(vote: NewVoteStructure) -> Text:
         start_date = parse_date(vote.startDate)
         end_date = parse_date(vote.endDate)
         date_format: str = "%H:%M, %d.%m.%Y"
-        link = 'http://aikido.sytes.net/vote'
+        link = f'http://aikido.sytes.net/vote/{vote.voteId}'
 
         content = Text(
             '🗳 ', Bold(f'Голосование: {vote.title}'), '\n',
