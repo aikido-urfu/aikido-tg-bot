@@ -32,7 +32,8 @@ async def start(message: types.Message, command: CommandObject):
             await message.answer('Вы уже подписаны на уведомления')
         else:
             raise Exception("Internal error")
-    except:
+    except Exception as err:
+        logging.error(f'start: {err}')
         await message.answer('Произошла ошибка при подписке на уведомления')
         return
 
