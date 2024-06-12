@@ -166,7 +166,7 @@ async def kill(message: types.Message, command: CommandObject):
         if str(message.from_user.id) != config.debug_chat_id.get_secret_value():
             await message.answer(**Text('Unauthorized').as_kwargs())
 
-        picked_upd_type = message.text.replace('/kill', '')
+        picked_upd_type = message.text.replace('/kill_', '')
 
         if picked_upd_type == 'all':
             for app in upd_type.values():
