@@ -49,6 +49,19 @@ class UserStartStructure(BaseModel):
     telegramUserID: str = None
 
 
+class UserVoteStructure(BaseModel):
+    voteId: int = Field(..., alias='id')
+    title: str = Field(...)
+    startDate: str
+    endDate: str
+    isVoted: bool
+    isExpired: bool
+
+
+class UserVotesStructure(BaseModel):
+    votes: list[UserVoteStructure]
+
+
 class NotificationType(Enum):
     NEW_VOTE = 'newVote'
     EXPIRING_VOTE = 'expiringVotes'
@@ -63,7 +76,7 @@ upd_type = {
 }
 
 commands: list[BotCommand] = [
-    # BotCommand(command='votes', description='Проверить активные голосования'),
+    BotCommand(command='votes', description='Список голосований'),
     BotCommand(command='unsubscribe', description='Отписаться от уведомлений'),
     BotCommand(command='settings', description='Изменить настройки уведомлений'),
     BotCommand(command='hosting', description='Рестарт/стоп приложений на хосте')]

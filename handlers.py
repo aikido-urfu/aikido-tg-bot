@@ -5,16 +5,17 @@ import requests
 import asyncio
 
 import settings as st
+from datetime import datetime
+from pathlib import Path
+from pydantic import ValidationError
 from aiogram import types, F
 from aiogram.filters.command import Command, CommandObject, CommandStart
 from aiogram.utils.formatting import Text, Bold, TextLink, Italic, as_list, BotCommand
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
-from datetime import datetime
-from pathlib import Path
 
-from settings import cmd_router, dp, UserStartStructure, upd_type
+from settings import cmd_router, dp, UserStartStructure, upd_type, UserVotesStructure
 from config_reader import config
-from func import link_telegram, unlink_telegram, get_settings_inline_kb
+from func import link_telegram, unlink_telegram, get_settings_inline_kb, get_user_vote_msg, get_user_votes
 from utils import restart_task, kill_task, save_notif_settings
 
 
@@ -40,38 +41,27 @@ async def start(message: types.Message, command: CommandObject):
 
 # /votes handler
 @cmd_router.message(Command('votes'))
-async def votes(message: types.Message):
+async def votes_handler(message: types.Message):
     try:
-        res = requests.get(st.url + 'votes', data={'tgid': message.chat.id})
-        if res.ok:
-            answer = res.json()
-            if not answer:
-                await message.answer('Нет активных голосований')
-                return
-            for vote in answer['votes']:
-                vote_name: str = vote['text']
-                # start_date: datetime = datetime.strptime(vote['dateOfStart'], "%Y-%m-%dT%H:%M:%S.%f%z")
-                # end_date: datetime = datetime.strptime(vote['dateOfEnd'], "%Y-%m-%dT%H:%M:%S.%f%z")
-                link: str = vote['url']
-                date_format: str = "%H:%M, %d.%m.%Y"
-
-                # vote_name = 'Выбор названия клуба'
-                start_date = datetime.strptime('2012-11-04T14:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
-                end_date = datetime.strptime('2012-12-05T18:51:06.157Z', "%Y-%m-%dT%H:%M:%S.%f%z")
-                # link = 'https://aikido.ru/votes/1/'
-
-                content = Text(
-                    '🗳 ', Bold(f'Голосование: {vote_name}'), '\n',
-                    Italic('Сроки голосования: '), start_date.strftime(date_format), ' - ',
-                    end_date.strftime(date_format), '\n\n',
-                    TextLink('🔗 Перейти к голосованию', url=link)
-                )
-                await message.answer(**content.as_kwargs())
-        else:
+        res = await get_user_votes(message.chat.id)
+        if not res.ok:
             raise Exception
-    except Exception as err:
+        data = res.json()
+        my_votes = UserVotesStructure.model_validate(data)
+
+        if len(my_votes.votes) == 0:
+            await message.answer(**Text('У вас нет голосований').as_kwargs())
+            return
+
+        for vote in my_votes.votes:
+            await message.answer(**get_user_vote_msg(vote).as_kwargs())
+
+    except ValidationError as val_err:
+        logging.error(f'votes_handler: {val_err}')
         await message.answer('Произошла ошибка при проверке активных голосований')
-        logging.error(err)
+    except Exception as err:
+        logging.error(f'votes_handler: {err}')
+        await message.answer('Произошла ошибка при проверке активных голосований')
 
 
 @cmd_router.callback_query(F.data == "not_unsubscribe")

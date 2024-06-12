@@ -8,7 +8,7 @@ from collections.abc import Callable
 from aiogram.utils.formatting import Text, Bold, Italic, TextLink
 from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, \
-    VoteRoot, UserStartStructure, NotificationSettingsRoot, NotificationType
+    VoteRoot, UserStartStructure, NotificationSettingsRoot, NotificationType, UserVoteStructure
 from utils import parse_date
 from config_reader import config
 
@@ -43,6 +43,26 @@ async def get_settings_inline_kb(settings: NotificationSettingsRoot):
             text="Закрыть",
             callback_data="settings_inline_close"))
     return builder
+
+
+def get_user_vote_msg(vote: UserVoteStructure) -> Text:
+    try:
+        start_date = parse_date(vote.startDate)
+        end_date = parse_date(vote.endDate)
+        date_format: str = "%H:%M, %d.%m.%Y"
+        link = f'http://aikido.sytes.net/vote/{vote.voteId}'
+
+        content = Text(
+            '🗳 ', Bold(f'Голосование: {vote.title[0:247] + "..." if len(vote.title) > 250 else vote.title}'), '\n',
+            Italic('Сроки голосования: '), start_date.strftime(date_format), ' - ', end_date.strftime(date_format), '\n',
+            '✅ Голосование пройдено' if vote.isVoted else '', '\n',
+            TextLink('🔗 Перейти к голосованию', url=link)
+        )
+        return content
+    except Exception as err:
+        error = Exception(f'get_user_vote_msg: {err}')
+        logging.error(error)
+        raise error
 
 
 def get_vote_msg(vote: NewVoteStructure) -> Text:
@@ -164,6 +184,17 @@ async def get_expired_votes(period: int):
         return res
     except Exception as err:
         error = Exception(f'get_expired_votes: {err}')
+        logging.error(error)
+        raise error
+
+
+async def get_user_votes(tgUserId: int):
+    try:
+        header = {"Authorization": f'Bearer {config.server_auth_token.get_secret_value()}'}
+        res = requests.get(f"{st.url}telegram/votes", json={'telegramUserID': str(tgUserId)}, headers=header)
+        return res
+    except Exception as err:
+        error = Exception(f'get_user_votes: {err}')
         logging.error(error)
         raise error
 
