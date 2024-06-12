@@ -10,6 +10,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, \
     VoteRoot, UserStartStructure, NotificationSettingsRoot, NotificationType
 from utils import parse_date
+from config_reader import config
 
 
 def get_bell_icon(state: bool) -> str:
@@ -114,7 +115,8 @@ def get_answer_msg(discussion: DiscussionAnswerStructure) -> Text:
 
 async def link_telegram(user: UserStartStructure):
     try:
-        res = requests.post(f"{st.url}telegram/start", json=user.model_dump())
+        res = requests.post(f"{st.url}telegram/start", json=user.model_dump(),
+                            auth=config.server_auth_token.get_secret_value())
         return res
     except Exception as err:
         error = Exception(f'link_telegram: {err}')
@@ -133,7 +135,8 @@ async def unlink_telegram(tgUserId: int):
 
 
 # TODO: Последовательная рассылка для упреждения ограничений телеграм
-async def handle_notification(notif_type: NotificationType, data: VoteRoot, send_func: Callable[[VoteRoot.__subclasses__()], Text]):
+async def handle_notification(notif_type: NotificationType, data: VoteRoot,
+                              send_func: Callable[[VoteRoot.__subclasses__()], Text]):
     for user in data.tgUserIds:
         settings = st.notif_settings.get(user, st.notif_settings[0])
         if getattr(settings, notif_type.value, True):
@@ -144,7 +147,8 @@ async def handle_notification(notif_type: NotificationType, data: VoteRoot, send
 # Check every 12 hours
 async def get_expiring_votes(period: int):
     try:
-        res = requests.get(f"{st.url}telegram/expiringVotes", params={'period': period})
+        res = requests.get(f"{st.url}telegram/expiringVotes", params={'period': period},
+                           auth=config.server_auth_token.get_secret_value())
         return res
     except Exception as err:
         error = Exception(f'get_expiring_votes: {err}')
@@ -154,7 +158,8 @@ async def get_expiring_votes(period: int):
 
 async def get_expired_votes(period: int):
     try:
-        res = requests.get(f"{st.url}telegram/expiredVotes", params={'period': period})
+        res = requests.get(f"{st.url}telegram/expiredVotes", params={'period': period},
+                           auth=config.server_auth_token.get_secret_value())
         return res
     except Exception as err:
         error = Exception(f'get_expired_votes: {err}')
