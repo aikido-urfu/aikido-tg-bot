@@ -8,13 +8,14 @@ import settings as st
 from aiogram import types, F
 from aiogram.filters.command import Command, CommandObject, CommandStart
 from aiogram.utils.formatting import Text, Bold, TextLink, Italic, as_list, BotCommand
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
 from datetime import datetime
+from pathlib import Path
 
-from settings import cmd_router, dp, UserStartStructure
+from settings import cmd_router, dp, UserStartStructure, upd_type
 from config_reader import config
-from func import kill_proc, link_telegram, unlink_telegram, results_notifier
-from utils import copy_and_replace
+from func import link_telegram, unlink_telegram, get_settings_inline_kb
+from utils import restart_task, kill_task, save_notif_settings
 
 
 # /start handler
@@ -102,135 +103,111 @@ async def unsubscribe(callback: types.CallbackQuery):
 @cmd_router.message(Command('unsubscribe'))
 async def unsubscribe_handler(message: types.Message):
     builder = InlineKeyboardBuilder()
-    builder.add(types.InlineKeyboardButton(
-        text="Да",
-        callback_data="unsubscribe")
+    builder.add(
+        InlineKeyboardButton(
+            text="Да",
+            callback_data="unsubscribe"),
+        InlineKeyboardButton(
+            text="Нет",
+            callback_data="not_unsubscribe")
     )
-    builder.add(types.InlineKeyboardButton(
-        text="Нет",
-        callback_data="not_unsubscribe")
-    )
-
     await message.answer(
         'Вы уверены, что хотите отписаться?',
         reply_markup=builder.as_markup(),
     )
 
 
+@cmd_router.callback_query(F.data.startswith('settings_inline_'))
+async def settings_inline(callback: types.CallbackQuery):
+    try:
+        setting = callback.data.replace('settings_inline_', '')
+
+        if setting == 'close':
+            await callback.message.edit_text(**Text('Настройки уведомлений сохранены').as_kwargs())
+            await callback.answer()
+            return
+
+        settings = st.notif_settings.get(callback.from_user.id, st.notif_settings[0])
+        cur_setting: bool | None = getattr(settings, setting, None)
+        if cur_setting is None:
+            raise Exception(f'Setting with name {setting} not found')
+
+        setattr(settings, setting, not cur_setting)
+        st.notif_settings[callback.from_user.id] = settings
+        save_notif_settings()
+
+        builder = await get_settings_inline_kb(settings)
+
+        await callback.message.edit_reply_markup(reply_markup=builder.as_markup())
+        await callback.answer()
+    except Exception as err:
+        logging.error(f'settings_inline: {err}')
+        await callback.message.answer(**Text('Произошла ошибка при изменении настроек.').as_kwargs())
+        await callback.answer()
+
+
+# /settings
+@cmd_router.message(Command('settings'))
+async def settings_handler(message: types.Message):
+    try:
+        settings = st.notif_settings.get(message.from_user.id, st.notif_settings[0])
+        builder = await get_settings_inline_kb(settings)
+
+        await message.answer('Выберите уведомления, которые хотите получать', reply_markup=builder.as_markup())
+    except Exception as err:
+        await message.answer('Произошла непредвиденная ошибка')
+        logging.error(f'settings_handler: {err}')
+
+
 # @dp.message(Command('kill'))
 @cmd_router.message(Command(re.compile(r'^kill_(web|server|files|all)$')))
 async def kill(message: types.Message, command: CommandObject):
-    picked_upd_type = message.text.replace('/kill_', '')
     try:
-        await kill_proc(picked_upd_type)
+        if str(message.from_user.id) != config.debug_chat_id.get_secret_value():
+            await message.answer(**Text('Unauthorized').as_kwargs())
+
+        picked_upd_type = message.text.replace('/kill', '')
+
+        if picked_upd_type == 'all':
+            for app in upd_type.values():
+                kill_task(app)
+        else:
+            kill_task(upd_type[picked_upd_type])
+
         await message.answer(f'Процесс {picked_upd_type} завершен')
     except Exception as err:
         await message.answer('Произошла ошибка во время завершения процесса')
         logging.error(f'app_kill: {err}')
 
 
-# @dp.message(Command('update'))
-@cmd_router.message(Command(re.compile(r'^update_(web|server|files|all)$')))
-async def update(message: types.Message):
-    upd_type = {
-        'web': 'aikido-web-core',
-        'server': 'aikido-server-core',
-        'files': 'aikido-server-files',
-        'all': 'all'
-    }
-    commands = [
-        ['git', 'fetch'],
-        ['git', 'stash', '-u'],
-        ['git', 'pull', '--force'],
-        ['npm', 'i'],
-    ]
-    run_commands = {
-        'web': 'npx webpack serve --config webpack.config.dev.js --port 3004',
-        'server': 'npm start',
-        'files': '',
-        'all': 'all',
-    }
-    picked_upd_type = message.text.replace('/update_', '')
-
-    if picked_upd_type == 'all':
-        return
-
-    if picked_upd_type == 'files':
-        return
+@cmd_router.message(Command(re.compile(r'^restart_(web|server|files|all)$')))
+async def restart(message: types.Message):
     try:
-        await kill_proc(picked_upd_type)
+        if str(message.from_user.id) != config.debug_chat_id.get_secret_value():
+            await message.answer(**Text('Unauthorized').as_kwargs())
 
-        folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
-        for cmd in commands:
-            result = subprocess.run(cmd,
-                                    capture_output=True,
-                                    text=True,
-                                    cwd=folder,
-                                    shell=True)
-            logging.info(f'Start of {picked_upd_type}: {result}')
+        picked_upd_type = message.text.replace('/restart_', '')
 
-        # if picked_upd_type == 'server':
-        #     copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
+        if picked_upd_type == 'all':
+            for app in upd_type.values():
+                restart_task(app)
+        else:
+            restart_task(upd_type[picked_upd_type])
 
-        proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
-                                                     cwd=folder,
-                                                     shell=True,
-                                                     stdout=asyncio.subprocess.PIPE,
-                                                     stderr=asyncio.subprocess.PIPE)
-        dp[picked_upd_type] = proc
-        await message.answer(f'{picked_upd_type} был успешно обновлен')
-    except Exception as err:
-        await message.answer('Произошла ошибка во время обновления приложения')
-        logging.error(f'app_update: {err}')
-
-
-@cmd_router.message(Command(re.compile(r'^start_(web|server|files|all)$')))
-async def start(message: types.Message):
-    upd_type = {
-        'web': 'aikido-web-core',
-        'server': 'aikido-server-core',
-        'files': 'aikido-server-files',
-        'all': 'all'
-    }
-    run_commands = {
-        'web': 'npx webpack serve --config webpack.config.dev.js --port 3004',
-        'server': 'npm start',
-        'files': '',
-        'all': 'all',
-    }
-    try:
-        picked_upd_type = message.text.replace('/start_', '')
-        folder = f"{config.git_path.get_secret_value()}/{upd_type[picked_upd_type]}/"
-        if picked_upd_type in ['files', 'all']:
-            return
-        if dp.get(picked_upd_type):
-            await kill_proc(picked_upd_type)
-        # if picked_upd_type == 'server':
-        #     copy_and_replace('./API_URL.ts', folder + 'API_URL.ts')
-        proc = await asyncio.create_subprocess_shell(cmd=run_commands[picked_upd_type],
-                                                     cwd=folder,
-                                                     shell=True,
-                                                     stdout=asyncio.subprocess.PIPE,
-                                                     stderr=asyncio.subprocess.PIPE)
-        dp[picked_upd_type] = proc
         await message.answer(f'{picked_upd_type} успешно запущен')
     except Exception as err:
-        await message.answer('Произошла ошибка при старте приложения')
-        logging.error(f'app_start: {err}')
+        await message.answer('Произошла ошибка при рестарте приложения')
+        logging.error(f'app_restart: {err}')
 
 
 @cmd_router.message(Command('hosting'))
 async def server_cmd(message: types.Message):
     content = Text(
         as_list(
-            BotCommand('/start_', 'web'),
-            BotCommand('/start_', 'server'),
-            BotCommand('/start_', 'files'),
-            BotCommand('/start_', 'all'),
-            BotCommand('/update_', 'web'),
-            BotCommand('/update_', 'server'),
-            BotCommand('/update_', 'files'),
-            BotCommand('/update_', 'all'),
+            BotCommand('/restart_', 'web'),
+            BotCommand('/restart_', 'server'),
+            BotCommand('/restart_', 'files'),
+            BotCommand('/restart_', 'all'),
             BotCommand('/kill_', 'web'),
             BotCommand('/kill_', 'server'),
             BotCommand('/kill_', 'files'),
@@ -238,24 +215,3 @@ async def server_cmd(message: types.Message):
         )
     )
     await message.answer(**content.as_kwargs())
-
-
-@cmd_router.message(Command('test'))
-async def test(message: types.Message):
-    tes1 = await results_notifier()
-    pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

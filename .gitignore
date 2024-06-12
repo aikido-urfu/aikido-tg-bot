@@ -162,4 +162,4 @@ cython_debug/
 settings.json
 *.session
 /test*.py
-
+*notif_settings.pkl

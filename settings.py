@@ -1,15 +1,18 @@
 import pydantic
+from enum import Enum
 from aiogram import Bot, Dispatcher, Router
+from aiogram.types import BotCommand
 from config_reader import config
 from aiohttp import web
 from pydantic import BaseModel, Field
 from typing import Optional
 
-dp: Dispatcher = Dispatcher()
-cmd_router: Router = Router()
-bot: Bot
-url = config.server_url.get_secret_value()
-routes = web.RouteTableDef()
+
+class NotificationSettingsRoot(BaseModel):
+    newVote: bool = True
+    expiringVotes: bool = True
+    expiredVotes: bool = True
+    discussAnswer: bool = True
 
 
 class VoteRoot(BaseModel):
@@ -44,3 +47,31 @@ class VoteResultsStructure(BaseModel):
 class UserStartStructure(BaseModel):
     token: str
     telegramUserID: str = None
+
+
+class NotificationType(Enum):
+    NEW_VOTE = 'newVote'
+    EXPIRING_VOTE = 'expiringVotes'
+    EXPIRED_VOTE = 'expiredVotes'
+    DISCUSS_ANSWER = 'discussAnswer'
+
+
+upd_type = {
+    'web': 'aikido-web-core',
+    'server': 'aikido-server-core',
+    'files': 'aikido-server-files',
+}
+
+commands: list[BotCommand] = [
+    # BotCommand(command='votes', description='Проверить активные голосования'),
+    BotCommand(command='unsubscribe', description='Отписаться от уведомлений'),
+    BotCommand(command='settings', description='Изменить настройки уведомлений'),
+    BotCommand(command='hosting', description='Рестарт/стоп приложений на хосте')]
+
+dp: Dispatcher = Dispatcher()
+cmd_router: Router = Router()
+bot: Bot
+url = config.server_url.get_secret_value()
+routes = web.RouteTableDef()
+notif_settings: dict[int, NotificationSettingsRoot] = {0: NotificationSettingsRoot()}
+bell_on, bell_off = '🔔', '🔕'

@@ -1,20 +1,47 @@
 import asyncio
-from datetime import datetime
 import logging
-from collections.abc import Callable
-
 import psutil
 import requests
-
 import settings as st
+from datetime import datetime
+from collections.abc import Callable
 from aiogram.utils.formatting import Text, Bold, Italic, TextLink
-from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, VoteRoot, UserStartStructure
+from aiogram.utils.keyboard import InlineKeyboardBuilder, InlineKeyboardButton
+from settings import dp, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure, \
+    VoteRoot, UserStartStructure, NotificationSettingsRoot, NotificationType
 from utils import parse_date
+
+
+def get_bell_icon(state: bool) -> str:
+    return st.bell_on if state else st.bell_off
 
 
 # DEBUG int(config.debug_chat_id.get_secret_value())
 async def send_msg(user_id: int, content: Text):
     await st.bot.send_message(user_id, **content.as_kwargs())
+
+
+async def get_settings_inline_kb(settings: NotificationSettingsRoot):
+    builder = InlineKeyboardBuilder()
+    builder.max_width = 1
+    builder.adjust()
+    builder.add(
+        InlineKeyboardButton(
+            text=f"{get_bell_icon(settings.newVote)} Новые голосования",
+            callback_data="settings_inline_newVote"),
+        InlineKeyboardButton(
+            text=f"{get_bell_icon(settings.expiringVotes)} Истекающие голосования",
+            callback_data="settings_inline_expiringVotes"),
+        InlineKeyboardButton(
+            text=f"{get_bell_icon(settings.expiredVotes)} Истёкшие голосования",
+            callback_data="settings_inline_expiredVotes"),
+        InlineKeyboardButton(
+            text=f"{get_bell_icon(settings.discussAnswer)} Ответы в обсуждениях",
+            callback_data="settings_inline_discussAnswer"),
+        InlineKeyboardButton(
+            text="Закрыть",
+            callback_data="settings_inline_close"))
+    return builder
 
 
 def get_vote_msg(vote: NewVoteStructure) -> Text:
@@ -85,31 +112,6 @@ def get_answer_msg(discussion: DiscussionAnswerStructure) -> Text:
         raise error
 
 
-async def kill_proc(server_type: str = None):
-    if server_type is None:
-        return
-
-    cur_proc: asyncio.subprocess.Process | None = dp.get(server_type)
-
-    if cur_proc:
-        try:
-            for child in psutil.Process(cur_proc.pid).children(recursive=True):
-                child.terminate()
-            cur_proc.terminate()
-            await cur_proc.wait()
-        except:
-            dp[server_type] = None
-        dp[server_type] = None
-        # if cur_proc.returncode == 1:
-        #     dp[server_type] = None
-        # else:
-        #     raise Exception()
-        logging.info(f'kill_proc of {server_type}')
-        # cur_proc.send_signal(signal.CTRL_C_EVENT)
-        # cur_proc.send_signal(signal.SIGINT)
-        # await cur_proc.wait()
-
-
 async def link_telegram(user: UserStartStructure):
     try:
         res = requests.post(f"{st.url}telegram/start", json=user.model_dump())
@@ -131,10 +133,12 @@ async def unlink_telegram(tgUserId: int):
 
 
 # TODO: Последовательная рассылка для упреждения ограничений телеграм
-async def handle_notification(data: VoteRoot, send_func: Callable[[VoteRoot.__subclasses__()], Text]):
+async def handle_notification(notif_type: NotificationType, data: VoteRoot, send_func: Callable[[VoteRoot.__subclasses__()], Text]):
     for user in data.tgUserIds:
-        content = send_func(data)
-        await send_msg(user, content)
+        settings = st.notif_settings.get(user, st.notif_settings[0])
+        if getattr(settings, notif_type.value, True):
+            content = send_func(data)
+            await send_msg(user, content)
 
 
 # Check every 12 hours
@@ -171,7 +175,7 @@ async def results_notifier():
         expired_votes = VoteResultsStructure.model_validate(data)
         pass
         for vote in expired_votes.votes:
-            await handle_notification(vote, get_results_msg)
+            await handle_notification(NotificationType.EXPIRED_VOTE, vote, get_results_msg)
         logging.info(f'results_notifier: {len(expired_votes.votes)} votes ended')
     except Exception as err:
         logging.error(err)
@@ -190,7 +194,7 @@ async def expiring_notifier():
         expiring_votes = VoteReminderStructure.model_validate(data)
         pass
         for vote in expiring_votes.votes:
-            await handle_notification(vote, get_reminder_msg)
+            await handle_notification(NotificationType.EXPIRING_VOTE, vote, get_reminder_msg)
         logging.info(f'expiring_notifier: {len(expiring_votes.votes)} votes will end soon')
     except Exception as err:
         logging.error(err)

@@ -1,12 +1,14 @@
 import logs
 import asyncio
+import logging
 import settings as st
 from aiohttp import web
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode
 from config_reader import config
-from settings import dp, cmd_router
+from settings import dp, cmd_router, commands
 from func import results_notifier, expiring_notifier
+from utils import repeat, load_notif_settings
 import webhook
 import handlers
 
@@ -21,25 +23,16 @@ async def webhook_setup():
     return site
 
 
-async def repeat(interval, func, *args, **kwargs):
-    """Run func every interval seconds.
-
-    If func has not finished before *interval*, will run again
-    immediately when the previous iteration finished.
-
-    *args and **kwargs are passed as the arguments to func.
-    """
-    while True:
-        await asyncio.gather(
-            func(*args, **kwargs),
-            asyncio.sleep(interval),
-        )
-
-
 # 10800 - 3h
 async def periodic_task_setup():
     asyncio.create_task(repeat(10800, results_notifier))
     asyncio.create_task(repeat(21600, expiring_notifier))
+
+
+async def setup_bot_commands():
+    result: bool = await st.bot.set_my_commands(commands)
+    if not result:
+        logging.error(f'setup_bot_commands is not succeeded')
 
 
 async def main():
@@ -47,6 +40,8 @@ async def main():
     site = await webhook_setup()
     dp.include_router(cmd_router)
 
+    load_notif_settings()
+    await setup_bot_commands()
     await site.start()
     await periodic_task_setup()
     await dp.start_polling(st.bot)

@@ -2,9 +2,10 @@ import logging
 from aiohttp import web
 from pydantic import ValidationError
 
-from func import handle_notification, get_vote_msg,get_reminder_msg,get_results_msg,get_answer_msg
+from func import handle_notification, get_vote_msg, get_answer_msg
 from config_reader import config
-from settings import routes, NewVoteStructure, VoteResultsStructure, VoteReminderStructure, DiscussionAnswerStructure
+from settings import routes, NewVoteStructure, DiscussionAnswerStructure, \
+    NotificationType
 
 
 @web.middleware
@@ -20,7 +21,7 @@ async def auth(request: web.Request, handler: web.Callable):
 async def new_vote(request: web.Request):
     try:
         data = NewVoteStructure.model_validate(await request.json())
-        await handle_notification(data, get_vote_msg)
+        await handle_notification(NotificationType.NEW_VOTE, data, get_vote_msg)
         return web.Response(status=200)
     except ValidationError as val_err:
         logging.error(f'new_vote: {val_err}')
@@ -35,7 +36,7 @@ async def new_vote(request: web.Request):
 async def discussion_answer(request: web.Request):
     try:
         data = DiscussionAnswerStructure.model_validate(await request.json())
-        await handle_notification(data, get_answer_msg)
+        await handle_notification(NotificationType.DISCUSS_ANSWER, data, get_answer_msg)
         return web.Response(status=200)
     except ValidationError as val_err:
         logging.error(f'discussion_answer: {val_err}')
