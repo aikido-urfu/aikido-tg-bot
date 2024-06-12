@@ -115,8 +115,8 @@ def get_answer_msg(discussion: DiscussionAnswerStructure) -> Text:
 
 async def link_telegram(user: UserStartStructure):
     try:
-        res = requests.post(f"{st.url}telegram/start", json=user.model_dump(),
-                            auth=config.server_auth_token.get_secret_value())
+        header = {"Authorization": f'Bearer {config.server_auth_token.get_secret_value()}'}
+        res = requests.post(f"{st.url}telegram/start", json=user.model_dump(), headers=header)
         return res
     except Exception as err:
         error = Exception(f'link_telegram: {err}')
@@ -126,7 +126,8 @@ async def link_telegram(user: UserStartStructure):
 
 async def unlink_telegram(tgUserId: int):
     try:
-        res = requests.delete(f"{st.url}telegram/unsubscribe", json={'telegramUserID': str(tgUserId)})
+        header = {"Authorization": f'Bearer {config.server_auth_token.get_secret_value()}'}
+        res = requests.delete(f"{st.url}telegram/unsubscribe", json={'telegramUserID': str(tgUserId)}, headers=header)
         return res
     except Exception as err:
         error = Exception(f'unlink_telegram: {err}')
@@ -147,8 +148,8 @@ async def handle_notification(notif_type: NotificationType, data: VoteRoot,
 # Check every 12 hours
 async def get_expiring_votes(period: int):
     try:
-        res = requests.get(f"{st.url}telegram/expiringVotes", params={'period': period},
-                           auth=config.server_auth_token.get_secret_value())
+        header = {"Authorization": f'Bearer {config.server_auth_token.get_secret_value()}'}
+        res = requests.get(f"{st.url}telegram/expiringVotes", params={'period': period}, headers=header)
         return res
     except Exception as err:
         error = Exception(f'get_expiring_votes: {err}')
@@ -158,8 +159,8 @@ async def get_expiring_votes(period: int):
 
 async def get_expired_votes(period: int):
     try:
-        res = requests.get(f"{st.url}telegram/expiredVotes", params={'period': period},
-                           auth=config.server_auth_token.get_secret_value())
+        header = {"Authorization": f'Bearer {config.server_auth_token.get_secret_value()}'}
+        res = requests.get(f"{st.url}telegram/expiredVotes", params={'period': period}, headers=header)
         return res
     except Exception as err:
         error = Exception(f'get_expired_votes: {err}')
