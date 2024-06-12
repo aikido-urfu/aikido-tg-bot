@@ -44,8 +44,13 @@ async def start(message: types.Message, command: CommandObject):
 async def votes_handler(message: types.Message):
     try:
         res = await get_user_votes(message.chat.id)
+
         if not res.ok:
+            if res.status_code == 409:
+                await message.answer('Вы не привязаны к аккаунту')
+                return
             raise Exception
+
         data = res.json()
         my_votes = UserVotesStructure.model_validate(data)
 
