@@ -161,6 +161,7 @@ async def kill(message: types.Message, command: CommandObject):
     try:
         if str(message.from_user.id) != config.debug_chat_id.get_secret_value():
             await message.answer(**Text('Unauthorized').as_kwargs())
+            return
 
         picked_upd_type = message.text.replace('/kill_', '')
 
@@ -181,6 +182,7 @@ async def restart(message: types.Message):
     try:
         if str(message.from_user.id) != config.debug_chat_id.get_secret_value():
             await message.answer(**Text('Unauthorized').as_kwargs())
+            return
 
         picked_upd_type = message.text.replace('/restart_', '')
 
