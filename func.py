@@ -90,7 +90,7 @@ def get_results_msg(vote: VoteResultsStructure) -> Text:
         link = f'http://aikido.sytes.net/vote/{vote.voteId}/results'
 
         content = Text(
-            '🗳 ', Bold(f'Голосование: {vote.title} завершилось'), '\n',
+            '🗳 ', Bold(f'Голосование: {vote.title}'), 'завершилось', '\n',
             TextLink('🔗 Посмотреть результаты', url=link)
         )
         return content
@@ -107,7 +107,7 @@ def get_reminder_msg(vote: VoteRoot.__subclasses__()) -> Text:
         link = f'http://aikido.sytes.net/vote/{vote.voteId}'
 
         content = Text(
-            '🗳 ', Bold(f'Голосование {vote.title} скоро закончится!'), '\n',
+            '🗳 ', Bold(f'Голосование: {vote.title}'), 'скоро закончится!', '\n',
             '⌛️ Успейте проголосовать до ', end_date.strftime(date_format), '\n',
             TextLink('🔗 Перейти к голосованию', url=link)
         )
