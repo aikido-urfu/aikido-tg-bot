@@ -123,7 +123,7 @@ async def settings_inline(callback: types.CallbackQuery):
             await callback.answer()
             return
 
-        settings = st.notif_settings.get(callback.from_user.id, st.notif_settings[0])
+        settings = st.notif_settings.get(callback.from_user.id, st.notif_settings[0].model_copy(deep=True))
         cur_setting: bool | None = getattr(settings, setting, None)
         if cur_setting is None:
             raise Exception(f'Setting with name {setting} not found')
