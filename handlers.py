@@ -155,6 +155,13 @@ async def settings_handler(message: types.Message):
         logging.error(f'settings_handler: {err}')
 
 
+# /privacy handler
+# @cmd_router.message(Command('privacy'))
+async def privacy(message: types.Message, command: CommandObject) -> None:
+    await message.answer(**Text('Данный бот сохраняет ваш телеграм айди, а так же может сохранять всю публичную '
+                                'информацию, предоставляемую telegram-api').as_kwargs())
+
+
 # @dp.message(Command('kill'))
 @cmd_router.message(Command(re.compile(r'^kill_(web|server|files|all)$')))
 async def kill(message: types.Message, command: CommandObject):

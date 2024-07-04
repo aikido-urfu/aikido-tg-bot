@@ -79,7 +79,9 @@ commands: list[BotCommand] = [
     BotCommand(command='votes', description='Список голосований'),
     BotCommand(command='unsubscribe', description='Отписаться от уведомлений'),
     BotCommand(command='settings', description='Изменить настройки уведомлений'),
-    BotCommand(command='hosting', description='Рестарт/стоп приложений на хосте')]
+    BotCommand(command='hosting', description='Рестарт/стоп приложений на хосте'),
+    BotCommand(command='privacy', description='Политика конфиденциальности')
+]
 
 dp: Dispatcher = Dispatcher()
 cmd_router: Router = Router()
