@@ -156,7 +156,7 @@ async def settings_handler(message: types.Message):
 
 
 # /privacy handler
-# @cmd_router.message(Command('privacy'))
+@cmd_router.message(Command('privacy'))
 async def privacy(message: types.Message, command: CommandObject) -> None:
     await message.answer(**Text('Данный бот сохраняет ваш телеграм айди, а так же может сохранять всю публичную '
                                 'информацию, предоставляемую telegram-api').as_kwargs())
