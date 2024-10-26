@@ -2,8 +2,8 @@ import logging
 from aiohttp import web
 from pydantic import ValidationError
 
-from func import handle_notification, get_vote_msg, get_answer_msg
-from config_reader import config
+from src.func import handle_notification, get_vote_msg, get_answer_msg
+from src.config_reader import config
 from settings import routes, NewVoteStructure, DiscussionAnswerStructure, \
     NotificationType
 

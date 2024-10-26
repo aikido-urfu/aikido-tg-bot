@@ -4,7 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 get_trace = getattr(sys, 'gettrace', None)
-log_file_name = 'storage/logs/bot.log'
+log_file_name = '../storage/logs/bot.log'
 file_handlers = (RotatingFileHandler(log_file_name, backupCount=20, maxBytes=2000000, encoding='utf-8'),)
 
 if get_trace is None:

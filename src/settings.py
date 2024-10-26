@@ -2,10 +2,9 @@ import pydantic
 from enum import Enum
 from aiogram import Bot, Dispatcher, Router
 from aiogram.types import BotCommand
-from config_reader import config
+from src.config_reader import config
 from aiohttp import web
 from pydantic import BaseModel, Field
-from typing import Optional
 
 
 class NotificationSettingsRoot(BaseModel):

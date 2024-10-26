@@ -12,12 +12,12 @@ import settings as st
 
 # signal.signal(signal.SIGTERM, handler)
 def save_notif_settings():
-    with open(Path('.', 'storage', 'notif_settings.pkl'), 'wb') as f:
+    with open(Path('..', 'storage', 'notif_settings.pkl'), 'wb') as f:
         pickle.dump(st.notif_settings, f)
 
 
 def load_notif_settings():
-    path = Path('.', 'storage', 'notif_settings.pkl')
+    path = Path('..', 'storage', 'notif_settings.pkl')
     if path.exists():
         with open(path, 'rb') as f:
             st.notif_settings = pickle.load(f)
